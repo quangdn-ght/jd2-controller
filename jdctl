@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""
+JDownloader Headless Control CLI
+Provides command-line interface for managing JDownloader
+"""
+import os
+import sys
+import time
+import subprocess
+import argparse
+from pathlib import Path
+
+# Add project to path
+sys.path.insert(0, '/home/ght/project/jd2-controller')
+
+def run_command(cmd, shell=False):
+    """Run shell command and return output"""
+    try:
+        if shell:
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        else:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.returncode == 0, result.stdout.strip()
+    except Exception as e:
+        return False, str(e)
+
+def is_running():
+    """Check if JDownloader is running"""
+    # Use ps and grep, excluding grep itself
+    cmd = "ps aux | grep '[J]Downloader.jar' | awk '{print $2}'"
+    success, output = run_command(cmd, shell=True)
+    if success and output:
+        pids = [p for p in output.split('\n') if p.strip()]
+        if pids:
+            return True, pids
+    return False, []
+
+def start():
+    """Start JDownloader"""
+    print("🚀 Starting JDownloader...")
+    running, pids = is_running()
+    
+    if running:
+        print(f"✅ JDownloader is already running (PIDs: {', '.join(pids)})")
+        return True
+    
+    # Run the headless startup script
+    script = Path("/home/ght/project/jd2-controller/start_headless.sh")
+    if script.exists():
+        success, output = run_command(["bash", str(script)])
+        print(output)
+        return success
+    else:
+        print("❌ Startup script not found")
+        return False
+
+def stop():
+    """Stop JDownloader"""
+    print("🛑 Stopping JDownloader...")
+    running, pids = is_running()
+    
+    if not running:
+        print("ℹ️  JDownloader is not running")
+        return True
+    
+    # Try without sudo first (user owns the process)
+    run_command("pkill -9 -f 'java.*JDownloader.jar'", shell=True)
+    time.sleep(2)
+    
+    running, _ = is_running()
+    if not running:
+        print("✅ JDownloader stopped")
+        return True
+    else:
+        print("❌ Failed to stop JDownloader")
+        return False
+
+def restart():
+    """Restart JDownloader"""
+    print("🔄 Restarting JDownloader...")
+    stop()
+    time.sleep(2)
+    return start()
+
+def status():
+    """Show JDownloader status"""
+    running, pids = is_running()
+    
+    print("\n" + "="*70)
+    print("JDownloader Status".center(70))
+    print("="*70)
+    
+    if running:
+        print(f"\n✅ Status: RUNNING")
+        print(f"📊 PIDs: {', '.join(pids)}")
+        
+        # Get process info
+        for pid in pids[:1]:  # Show first process
+            success, output = run_command(f"ps -p {pid} -o pid,ppid,%cpu,%mem,etime,cmd --no-headers", shell=True)
+            if success and output:
+                print(f"\n📈 Process Info:")
+                print(f"   {output}")
+    else:
+        print("\n❌ Status: NOT RUNNING")
+    
+    # Check log file
+    log_file = Path("/tmp/jd2.log")
+    if log_file.exists():
+        print(f"\n📝 Log File: {log_file}")
+        print(f"   Size: {log_file.stat().st_size / 1024:.1f} KB")
+        print(f"   View: tail -f {log_file}")
+    
+    print("\n" + "="*70)
+
+def verify():
+    """Verify cloud connection"""
+    print("🔍 Verifying cloud connection...")
+    
+    verify_script = Path("/home/ght/project/jd2-controller/verify_connection_v2.py")
+    python_bin = Path("/home/ght/project/jd2-controller/venv/bin/python")
+    
+    if not verify_script.exists():
+        print("❌ Verification script not found")
+        return False
+    
+    success, output = run_command([str(python_bin), str(verify_script)])
+    print(output)
+    return success
+
+def logs(follow=False):
+    """Show JDownloader logs"""
+    log_file = "/tmp/jd2.log"
+    
+    if not Path(log_file).exists():
+        print(f"❌ Log file not found: {log_file}")
+        return
+    
+    if follow:
+        print(f"📝 Following logs from {log_file} (Ctrl+C to stop)...")
+        os.system(f"tail -f {log_file}")
+    else:
+        print(f"📝 Last 50 lines from {log_file}:")
+        os.system(f"tail -50 {log_file}")
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="JDownloader Headless Control CLI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s start              Start JDownloader
+  %(prog)s stop               Stop JDownloader
+  %(prog)s restart            Restart JDownloader
+  %(prog)s status             Show status
+  %(prog)s verify             Verify cloud connection
+  %(prog)s logs               Show logs
+  %(prog)s logs --follow      Follow logs in real-time
+        """
+    )
+    
+    parser.add_argument(
+        'command',
+        choices=['start', 'stop', 'restart', 'status', 'verify', 'logs'],
+        help='Command to execute'
+    )
+    
+    parser.add_argument(
+        '--follow', '-f',
+        action='store_true',
+        help='Follow logs (only with logs command)'
+    )
+    
+    args = parser.parse_args()
+    
+    # Execute command
+    commands = {
+        'start': start,
+        'stop': stop,
+        'restart': restart,
+        'status': status,
+        'verify': verify,
+        'logs': lambda: logs(args.follow)
+    }
+    
+    try:
+        success = commands[args.command]()
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Interrupted")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

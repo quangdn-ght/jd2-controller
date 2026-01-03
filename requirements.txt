@@ -1,0 +1,24 @@
+# Python dependencies for JDownloader Cloud Authentication Scripts
+
+# HTTP requests for API connectivity checks
+requests>=2.31.0
+
+# Process management utilities
+psutil>=5.9.0
+
+# FastAPI Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+email-validator>=2.1.0
+
+# MyJDownloader API Client
+myjdapi>=1.1.10
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# For future enhancements (optional)
+# cryptography>=41.0.0  # For secure credential storage
+# click>=8.1.0          # For better CLI interface

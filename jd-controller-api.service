@@ -1,0 +1,30 @@
+[Unit]
+Description=JDownloader Controller API Server
+After=network-online.target jdownloader.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ght
+Group=ght
+WorkingDirectory=/home/ght/project/jd2-controller
+Environment="PATH=/home/ght/project/jd2-controller/venv/bin"
+EnvironmentFile=/home/ght/project/jd2-controller/.env
+
+# Start API server
+ExecStart=/home/ght/project/jd2-controller/venv/bin/python /home/ght/project/jd2-controller/main.py api --prod
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+
+# Resource limits
+Nice=5
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jd-controller-api
+
+[Install]
+WantedBy=multi-user.target
