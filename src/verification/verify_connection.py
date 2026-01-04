@@ -3,8 +3,8 @@
 import os
 import sys
 from dotenv import load_dotenv
-from jd_cloud_connector import MyJDownloaderAPI
-from jd_auth_config import JDownloaderConfig
+from src.jdownloader.jd_cloud_connector import MyJDownloaderAPI
+from src.jdownloader.jd_auth_config import JDownloaderConfig
 
 load_dotenv()
 

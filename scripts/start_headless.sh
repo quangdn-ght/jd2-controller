@@ -8,9 +8,10 @@ set -e
 JD_HOME="/opt/jd2"
 JD_JAR="$JD_HOME/JDownloader.jar"
 LOG_FILE="/tmp/jd2.log"
-VERIFY_SCRIPT="/home/ght/project/jd2-controller/verify_connection_v2.py"
-PYTHON_VENV="/home/ght/project/jd2-controller/venv/bin/python"
-MAX_WAIT=90  # Maximum wait time for cloud connection in seconds
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+VERIFY_SCRIPT="$SCRIPT_DIR/src/verification/verify_connection_v2.py"
+PYTHON_VENV="$SCRIPT_DIR/venv/bin/python"
+MAX_WAIT=30  # Maximum wait time for cloud connection in seconds
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -61,7 +62,7 @@ stop_existing_instances() {
     print_status "Stopping any existing JDownloader instances..."
     
     if pgrep -f "JDownloader.jar" > /dev/null; then
-        sudo pkill -9 -f "JDownloader.jar" 2>/dev/null || true
+        pkill -9 -f "JDownloader.jar" 2>/dev/null || true
         sleep 2
         print_success "Existing instances stopped"
     else
@@ -75,7 +76,7 @@ start_jdownloader_headless() {
     cd "$JD_HOME"
     
     # Start JDownloader with headless flags
-    sudo nohup java -Djava.awt.headless=true \
+    nohup java -Djava.awt.headless=true \
                     -jar "$JD_JAR" \
                     -norestart \
                     -noerr \
@@ -86,7 +87,7 @@ start_jdownloader_headless() {
     
     # Wait for process to stabilize
     print_status "Waiting for JDownloader to initialize..."
-    sleep 10
+    sleep 5
     
     # Verify process is still running
     if ! pgrep -f "JDownloader.jar" > /dev/null; then
@@ -103,7 +104,7 @@ verify_cloud_connection() {
     print_status "Waiting for cloud connection to establish..."
     
     local elapsed=0
-    local wait_interval=10
+    local wait_interval=5
     local attempt=1
     
     while [ $elapsed -lt $MAX_WAIT ]; do
@@ -149,7 +150,7 @@ show_status() {
     echo "Control Commands:"
     echo "  Status:  ps aux | grep JDownloader.jar | grep -v grep"
     echo "  Logs:    tail -f $LOG_FILE"
-    echo "  Stop:    sudo pkill -9 -f JDownloader.jar"
+    echo "  Stop:    pkill -9 -f JDownloader.jar"
     echo "  Verify:  $PYTHON_VENV $VERIFY_SCRIPT"
     echo ""
     echo "Web Access: https://my.jdownloader.org"

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JDownloader WebSocket Controller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .status-bar {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dc3545;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #28a745;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .panel h2 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .input-group input,
+        .input-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .input-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .downloads-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .download-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .download-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .download-progress {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+
+        .log-panel {
+            grid-column: 1 / -1;
+        }
+
+        .log-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+        }
+
+        .log-entry.info {
+            color: #4ec9b0;
+        }
+
+        .log-entry.success {
+            color: #6a9955;
+        }
+
+        .log-entry.error {
+            color: #f48771;
+        }
+
+        .log-entry.warning {
+            color: #dcdcaa;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 JDownloader WebSocket Controller</h1>
+            <p>Real-time download management through MyJDownloader cloud</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+            <div>
+                <button class="btn-primary" onclick="connectToJD()">Connect to JDownloader</button>
+                <button class="btn-danger" onclick="disconnectFromJD()">Disconnect</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Control Panel -->
+            <div class="panel">
+                <h2>📥 Download Control</h2>
+                
+                <div class="button-group">
+                    <button class="btn-success" onclick="startDownloads()">▶️ Start</button>
+                    <button class="btn-warning" onclick="pauseDownloads()">⏸️ Pause</button>
+                    <button class="btn-danger" onclick="stopDownloads()">⏹️ Stop</button>
+                    <button class="btn-info" onclick="getStatus()">📊 Status</button>
+                </div>
+
+                <div class="input-group">
+                    <label>Add Download Links (one per line):</label>
+                    <textarea id="linksInput" placeholder="https://example.com/file1.zip&#10;https://example.com/file2.zip"></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label>Package Name (optional):</label>
+                    <input type="text" id="packageName" placeholder="My Downloads">
+                </div>
+
+                <button class="btn-primary" style="width: 100%;" onclick="addLinks()">➕ Add Links</button>
+            </div>
+
+            <!-- Monitoring Panel -->
+            <div class="panel">
+                <h2>📊 Monitoring</h2>
+                
+                <div class="button-group">
+                    <button class="btn-success" onclick="startMonitoring()">▶️ Start Monitoring</button>
+                    <button class="btn-danger" onclick="stopMonitoring()">⏹️ Stop Monitoring</button>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-info" onclick="getDownloads()">📋 Get Downloads</button>
+                    <button class="btn-info" onclick="getLinkgrabber()">🔗 Get Linkgrabber</button>
+                </div>
+
+                <div class="stats" id="statsContainer">
+                    <div class="stat-card">
+                        <div class="stat-value" id="activeDownloads">0</div>
+                        <div class="stat-label">Active</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalDownloads">0</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="progress">0%</div>
+                        <div class="stat-label">Progress</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Downloads List -->
+            <div class="panel" style="grid-column: 1 / -1;">
+                <h2>📦 Current Downloads</h2>
+                <div class="downloads-list" id="downloadsList">
+                    <p style="text-align: center; color: #999;">No downloads to display</p>
+                </div>
+            </div>
+
+            <!-- Log Panel -->
+            <div class="panel log-panel">
+                <h2>📜 Console Log</h2>
+                <div class="log-output" id="logOutput"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isMonitoring = false;
+
+        // Connect to WebSocket server
+        function connectToWebSocket() {
+            const wsUrl = 'ws://localhost:8001/ws';
+            log(`Connecting to ${wsUrl}...`, 'info');
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                log('WebSocket connected', 'success');
+                updateStatus(true);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (error) {
+                    log(`Error parsing message: ${error}`, 'error');
+                }
+            };
+
+            ws.onerror = (error) => {
+                log(`WebSocket error: ${error}`, 'error');
+                updateStatus(false);
+            };
+
+            ws.onclose = () => {
+                log('WebSocket disconnected', 'warning');
+                updateStatus(false);
+            };
+        }
+
+        // Send command through WebSocket
+        function sendCommand(command) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected to WebSocket', 'error');
+                return;
+            }
+
+            log(`Sending command: ${command.action}`, 'info');
+            ws.send(JSON.stringify(command));
+        }
+
+        // Handle incoming messages
+        function handleMessage(data) {
+            const type = data.type;
+
+            if (type === 'welcome') {
+                log(data.message, 'success');
+            } else if (type === 'response') {
+                handleResponse(data);
+            } else if (type === 'monitoring_update') {
+                handleMonitoringUpdate(data);
+            } else if (type === 'error') {
+                log(`Error: ${data.error}`, 'error');
+            }
+        }
+
+        // Handle command responses
+        function handleResponse(data) {
+            const action = data.action;
+            
+            if (data.success) {
+                log(`✅ ${action}: ${data.message || 'Success'}`, 'success');
+                
+                if (action === 'connect' && data.device_name) {
+                    log(`Connected to device: ${data.device_name}`, 'success');
+                }
+                
+                if (action === 'get_downloads' && data.downloads) {
+                    displayDownloads(data.downloads);
+                }
+                
+                if (action === 'status') {
+                    updateStats(data);
+                }
+            } else {
+                log(`❌ ${action}: ${data.error}`, 'error');
+            }
+        }
+
+        // Handle monitoring updates
+        function handleMonitoringUpdate(data) {
+            const status = data.status;
+            
+            if (status && status.success) {
+                updateStats(status);
+                
+                if (data.downloads) {
+                    displayDownloads(data.downloads);
+                }
+            }
+        }
+
+        // Update connection status
+        function updateStatus(connected) {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            if (connected) {
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Connected';
+            } else {
+                statusDot.classList.remove('connected');
+                statusText.textContent = 'Disconnected';
+            }
+        }
+
+        // Update statistics
+        function updateStats(data) {
+            document.getElementById('activeDownloads').textContent = data.active_downloads || 0;
+            document.getElementById('totalDownloads').textContent = data.total_downloads || 0;
+            document.getElementById('progress').textContent = (data.progress || 0).toFixed(1) + '%';
+        }
+
+        // Display downloads
+        function displayDownloads(downloads) {
+            const container = document.getElementById('downloadsList');
+            
+            if (!downloads || downloads.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999;">No downloads to display</p>';
+                return;
+            }
+            
+            container.innerHTML = downloads.map(dl => {
+                const progress = dl.bytesTotal > 0 
+                    ? (dl.bytesLoaded / dl.bytesTotal * 100).toFixed(1) 
+                    : 0;
+                
+                return `
+                    <div class="download-item">
+                        <div class="download-name">${dl.name}</div>
+                        <div class="download-progress">
+                            <span>Status: ${dl.status}</span>
+                            <span>${formatBytes(dl.bytesLoaded)} / ${formatBytes(dl.bytesTotal)}</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progress}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Format bytes
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Log message
+        function log(message, type = 'info') {
+            const logOutput = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        // Command functions
+        function connectToJD() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                connectToWebSocket();
+                setTimeout(() => {
+                    sendCommand({ action: 'connect' });
+                }, 1000);
+            } else {
+                sendCommand({ action: 'connect' });
+            }
+        }
+
+        function disconnectFromJD() {
+            sendCommand({ action: 'disconnect' });
+        }
+
+        function addLinks() {
+            const linksText = document.getElementById('linksInput').value.trim();
+            const packageName = document.getElementById('packageName').value.trim();
+            
+            if (!linksText) {
+                log('Please enter at least one link', 'warning');
+                return;
+            }
+            
+            const links = linksText.split('\n').filter(l => l.trim());
+            
+            sendCommand({
+                action: 'add_links',
+                links: links,
+                package_name: packageName || undefined
+            });
+            
+            // Clear input
+            document.getElementById('linksInput').value = '';
+        }
+
+        function startDownloads() {
+            sendCommand({ action: 'start' });
+        }
+
+        function pauseDownloads() {
+            sendCommand({ action: 'pause' });
+        }
+
+        function stopDownloads() {
+            sendCommand({ action: 'stop' });
+        }
+
+        function getStatus() {
+            sendCommand({ action: 'status' });
+        }
+
+        function getDownloads() {
+            sendCommand({ action: 'get_downloads' });
+        }
+
+        function getLinkgrabber() {
+            sendCommand({ action: 'get_linkgrabber' });
+        }
+
+        function startMonitoring() {
+            sendCommand({ 
+                action: 'start_monitoring',
+                interval: 2 
+            });
+            isMonitoring = true;
+            log('Monitoring started', 'success');
+        }
+
+        function stopMonitoring() {
+            sendCommand({ action: 'stop_monitoring' });
+            isMonitoring = false;
+            log('Monitoring stopped', 'warning');
+        }
+
+        // Auto-connect on page load
+        window.addEventListener('load', () => {
+            connectToWebSocket();
+        });
+    </script>
+</body>
+</html>

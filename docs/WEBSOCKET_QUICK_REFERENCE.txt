@@ -1,0 +1,221 @@
+╔════════════════════════════════════════════════════════════════════╗
+║         JDownloader WebSocket API - Quick Reference Card           ║
+╚════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 🚀 QUICK START                                                     │
+└────────────────────────────────────────────────────────────────────┘
+  Start Server:     ./start_websocket_api.sh
+  Demo Client:      http://localhost:8001/demo  ⭐
+  Web UI:           http://localhost:8001/
+  WebSocket:        ws://localhost:8001/ws
+  API Docs:         http://localhost:8001/docs
+  Test:             python3 test_websocket.py
+  Python Examples:  python3 websocket_client_example.py
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 📡 WEBSOCKET COMMANDS (Send as JSON)                               │
+└────────────────────────────────────────────────────────────────────┘
+
+  CONNECTION
+  ──────────
+  Connect:      {"action": "connect"}
+  Disconnect:   {"action": "disconnect"}
+
+  ADD DOWNLOADS
+  ─────────────
+  Add Links:    {"action": "add_links",
+                 "links": ["url1", "url2"],
+                 "package_name": "Optional"}
+
+  CONTROL
+  ───────
+  Start All:    {"action": "start"}
+  Start Some:   {"action": "start", "link_ids": [1,2,3]}
+  Pause All:    {"action": "pause"}
+  Pause Some:   {"action": "pause", "link_ids": [1,2]}
+  Stop All:     {"action": "stop"}
+
+  QUERY
+  ─────
+  Status:       {"action": "status"}
+  Downloads:    {"action": "get_downloads"}
+  Linkgrabber:  {"action": "get_linkgrabber"}
+
+  REMOVE
+  ──────
+  Remove:       {"action": "remove",
+                 "link_ids": [1,2],
+                 "package_ids": [1]}
+
+  MOVE
+  ────
+  Move:         {"action": "move_to_downloads",
+                 "link_ids": [1,2],
+                 "package_ids": [1]}
+
+  MONITORING
+  ──────────
+  Start:        {"action": "start_monitoring", "interval": 2}
+  Stop:         {"action": "stop_monitoring"}
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 🐍 PYTHON CLIENT EXAMPLE                                           │
+└────────────────────────────────────────────────────────────────────┘
+
+  import asyncio
+  import json
+  import websockets
+
+  async def main():
+      async with websockets.connect("ws://localhost:8001/ws") as ws:
+          # Connect
+          await ws.send(json.dumps({"action": "connect"}))
+          print(await ws.recv())
+          
+          # Add downloads
+          await ws.send(json.dumps({
+              "action": "add_links",
+              "links": ["https://example.com/file.zip"]
+          }))
+          print(await ws.recv())
+          
+          # Start downloads
+          await ws.send(json.dumps({"action": "start"}))
+          print(await ws.recv())
+
+  asyncio.run(main())
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 🌐 JAVASCRIPT CLIENT EXAMPLE                                       │
+└────────────────────────────────────────────────────────────────────┘
+
+  const ws = new WebSocket('ws://localhost:8001/ws');
+
+  ws.onopen = () => {
+      // Connect
+      ws.send(JSON.stringify({action: 'connect'}));
+      
+      // Add links
+      ws.send(JSON.stringify({
+          action: 'add_links',
+          links: ['https://example.com/file.zip']
+      }));
+      
+      // Start monitoring
+      ws.send(JSON.stringify({
+          action: 'start_monitoring',
+          interval: 2
+      }));
+  };
+
+  ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log(data);
+      
+      if (data.type === 'monitoring_update') {
+          console.log('Progress:', data.status.progress + '%');
+      }
+  };
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 📊 RESPONSE FORMAT                                                 │
+└────────────────────────────────────────────────────────────────────┘
+
+  Standard Response:
+  {
+    "type": "response",
+    "action": "connect",
+    "timestamp": "2026-01-04T10:30:00",
+    "success": true,
+    "message": "Connected successfully"
+  }
+
+  Monitoring Update:
+  {
+    "type": "monitoring_update",
+    "timestamp": "2026-01-04T10:30:00",
+    "status": {
+      "state": "RUNNING",
+      "active_downloads": 3,
+      "total_downloads": 5,
+      "progress": 60.5,
+      "total_bytes": 1073741824,
+      "loaded_bytes": 650117120
+    },
+    "downloads": [...]
+  }
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 🐛 TROUBLESHOOTING                                                 │
+└────────────────────────────────────────────────────────────────────┘
+
+  Server Issues:
+    Check port:       lsof -i :8001
+    Kill process:     pkill -f websocket_api.py
+    Check health:     curl http://localhost:8001/health
+
+  JDownloader Issues:
+    Check running:    ps aux | grep JDownloader
+    Start JD:         ./start_jd2.sh
+    Check logs:       tail -f /tmp/jd2.log
+    Verify cloud:     python3 verify_connection_v2.py
+
+  Connection Issues:
+    Check firewall:   sudo ufw allow 8001
+    View WS logs:     tail -f /tmp/jd_websocket.log
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 📁 KEY FILES                                                       │
+└────────────────────────────────────────────────────────────────────┘
+
+  websocket_api.py              - WebSocket server
+  jd_websocket_controller.py    - Controller module
+  websocket_client.html         - Web UI
+  websocket_client_example.py   - Python examples
+  start_websocket_api.sh        - Start script
+  test_websocket.py             - Test suite
+  README_WEBSOCKET.md           - Main documentation
+  docs/WEBSOCKET_API_GUIDE.md   - Complete guide
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 🔧 CONFIGURATION                                                   │
+└────────────────────────────────────────────────────────────────────┘
+
+  .env file:
+    MYJD_EMAIL=your_email@example.com
+    MYJD_PASSWORD=your_password
+    MYJD_DEVICE_NAME=JDownloader@root
+
+  Or configure:
+    python jd_auth_config.py --email EMAIL --password PASSWORD
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 🎯 COMMON WORKFLOWS                                                │
+└────────────────────────────────────────────────────────────────────┘
+
+  Add and Start Downloads:
+    1. {"action": "connect"}
+    2. {"action": "add_links", "links": [...]}
+    3. {"action": "get_linkgrabber"}
+    4. {"action": "move_to_downloads", "link_ids": [...]}
+    5. {"action": "start"}
+
+  Monitor Progress:
+    1. {"action": "connect"}
+    2. {"action": "start_monitoring", "interval": 2}
+    3. (receive automatic updates)
+    4. {"action": "stop_monitoring"}
+
+  Control Downloads:
+    1. {"action": "connect"}
+    2. {"action": "get_downloads"}
+    3. {"action": "pause"}  or  {"action": "start"}
+
+╔════════════════════════════════════════════════════════════════════╗
+║  For complete documentation, see:                                  ║
+║  - README_WEBSOCKET.md                                             ║
+║  - docs/WEBSOCKET_API_GUIDE.md                                     ║
+║                                                                    ║
+║  Version: 1.0.0  |  Date: January 4, 2026  |  Status: Ready ✅    ║
+╚════════════════════════════════════════════════════════════════════╝

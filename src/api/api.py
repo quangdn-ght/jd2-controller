@@ -10,8 +10,8 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
-from jd_auth_config import JDownloaderConfig
-from jd_cloud_connector import MyJDownloaderAPI, JDownloaderService
+from src.jdownloader.jd_auth_config import JDownloaderConfig
+from src.jdownloader.jd_cloud_connector import MyJDownloaderAPI, JDownloaderService
 import myjdapi
 
 # Load environment variables

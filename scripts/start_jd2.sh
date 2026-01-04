@@ -4,7 +4,7 @@
 echo "🔧 Starting JDownloader Cloud Connection..."
 
 # Kill any existing JDownloader instances
-sudo pkill -9 -f JDownloader.jar 2>/dev/null
+pkill -9 -f JDownloader.jar 2>/dev/null
 sleep 2
 
 # Check if JDownloader.jar exists
@@ -16,7 +16,7 @@ fi
 # Start JDownloader
 echo "🚀 Starting JDownloader..."
 cd /opt/jd2
-sudo java -jar JDownloader.jar -norestart > /tmp/jd2.log 2>&1 &
+java -jar JDownloader.jar -norestart > /tmp/jd2.log 2>&1 &
 
 # Wait for JDownloader to start
 echo "⏳ Waiting for JDownloader to start (30 seconds)..."
