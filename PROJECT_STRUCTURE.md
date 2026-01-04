@@ -13,26 +13,18 @@ jd2-controller/
 │   │
 │   ├── api/                      # API modules
 │   │   ├── __init__.py
-│   │   ├── api.py               # REST API
-│   │   └── websocket_api.py     # WebSocket API
+│   │   └── api.py               # REST API
 │   │
 │   ├── jdownloader/             # JDownloader integration
 │   │   ├── __init__.py
 │   │   ├── jd_auth_config.py    # Authentication config
-│   │   ├── jd_cloud_connector.py # Cloud connector
-│   │   └── jd_websocket_controller.py # WebSocket controller
+│   │   └── jd_cloud_connector.py # Cloud connector
 │   │
 │   ├── verification/            # Connection verification
 │   │   ├── __init__.py
 │   │   ├── connect_and_verify.py
 │   │   ├── verify_connection.py
 │   │   └── verify_connection_v2.py
-│   │
-│   ├── client/                  # Client examples and tests
-│   │   ├── __init__.py
-│   │   ├── test_websocket.py
-│   │   ├── websocket_client_example.py
-│   │   └── websocket_client.html
 │   │
 │   └── utils/                   # Utility functions
 │       └── __init__.py
@@ -42,8 +34,7 @@ jd2-controller/
 │   ├── run.sh
 │   ├── setup_venv.sh
 │   ├── start_headless.sh
-│   ├── start_jd2.sh
-│   └── start_websocket_api.sh
+│   └── start_jd2.sh
 │
 ├── docs/                        # Documentation
 │   └── *.md
@@ -61,19 +52,13 @@ jd2-controller/
 
 ### API Module (`src/api/`)
 - **api.py**: FastAPI REST API for JDownloader management
-- **websocket_api.py**: WebSocket API for real-time control
 
 ### JDownloader Module (`src/jdownloader/`)
 - **jd_auth_config.py**: Configuration management for MyJDownloader
 - **jd_cloud_connector.py**: Cloud API connection handler
-- **jd_websocket_controller.py**: WebSocket-based JDownloader controller
 
 ### Verification Module (`src/verification/`)
 - Scripts for testing and verifying JDownloader cloud connections
-
-### Client Module (`src/client/`)
-- Example clients and test scripts
-- HTML demo client
 
 ### Scripts Directory (`scripts/`)
 - Shell scripts for starting services, setup, and management
@@ -99,9 +84,6 @@ python3 verify_connection_v2.py
 ### Using Scripts
 
 ```bash
-# Start WebSocket API
-./scripts/start_websocket_api.sh
-
 # Start JDownloader headless
 ./scripts/start_headless.sh
 
@@ -115,7 +97,7 @@ With the new structure, imports should use the `src` package:
 
 ```python
 from src.jdownloader import JDownloaderConfig, MyJDownloaderAPI
-from src.api import rest_app, websocket_app
+from src.api import rest_app
 ```
 
 ## Benefits of This Structure

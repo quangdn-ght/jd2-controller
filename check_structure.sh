@@ -7,7 +7,7 @@ echo ""
 errors=0
 
 # Check directories exist
-for dir in src src/api src/jdownloader src/verification src/client src/utils scripts docs; do
+for dir in src src/api src/jdownloader src/verification src/utils scripts docs; do
     if [ -d "$dir" ]; then
         echo "✅ $dir/"
     else
@@ -19,7 +19,7 @@ done
 echo ""
 
 # Check key files exist
-for file in main.py src/main.py src/api/api.py src/api/websocket_api.py src/jdownloader/jd_auth_config.py; do
+for file in main.py src/main.py src/api/api.py src/jdownloader/jd_auth_config.py; do
     if [ -f "$file" ]; then
         echo "✅ $file"
     else
