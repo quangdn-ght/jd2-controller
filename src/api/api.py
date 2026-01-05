@@ -546,7 +546,7 @@ async def cli_stop(api_key: str = Depends(verify_api_key)):
     try:
         # Check if running
         result = subprocess.run(
-            ["pgrep", "-f", "JDownloader.jar"],
+            ["/usr/bin/pgrep", "-f", "JDownloader.jar"],
             capture_output=True,
             text=True
         )
@@ -559,7 +559,7 @@ async def cli_stop(api_key: str = Depends(verify_api_key)):
         
         # Stop JDownloader
         subprocess.run(
-            ["sudo", "pkill", "-9", "-f", "JDownloader.jar"],
+            ["/usr/bin/sudo", "/usr/bin/pkill", "-9", "-f", "JDownloader.jar"],
             capture_output=True
         )
         
@@ -567,7 +567,7 @@ async def cli_stop(api_key: str = Depends(verify_api_key)):
         
         # Verify stopped
         result = subprocess.run(
-            ["pgrep", "-f", "JDownloader.jar"],
+            ["/usr/bin/pgrep", "-f", "JDownloader.jar"],
             capture_output=True
         )
         
@@ -620,7 +620,7 @@ async def cli_status(api_key: str = Depends(verify_api_key)):
     try:
         # Check if running
         result = subprocess.run(
-            ["pgrep", "-f", "JDownloader.jar"],
+            ["/usr/bin/pgrep", "-f", "JDownloader.jar"],
             capture_output=True,
             text=True
         )
@@ -640,7 +640,7 @@ async def cli_status(api_key: str = Depends(verify_api_key)):
         process_info = None
         if pids:
             ps_result = subprocess.run(
-                ["ps", "-p", pids[0], "-o", "pid,ppid,%cpu,%mem,etime,cmd", "--no-headers"],
+                ["/usr/bin/ps", "-p", pids[0], "-o", "pid,ppid,%cpu,%mem,etime,cmd", "--no-headers"],
                 capture_output=True,
                 text=True
             )

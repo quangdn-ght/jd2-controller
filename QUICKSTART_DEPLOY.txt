@@ -1,0 +1,89 @@
+┌────────────────────────────────────────────────────────────┐
+│                                                            │
+│  🚀 JDownloader Controller - Deployment Quick Start       │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+  METHOD 1: One-Click Deploy (Recommended) ⭐
+══════════════════════════════════════════════════════════════
+
+$ ./oneclick_deploy.sh
+
+  → Builds package
+  → Transfers to fshare host  
+  → Installs automatically
+
+Requirements:
+  • SSH passwordless auth: ssh-copy-id fshare
+  • Test connection: ssh fshare "echo OK"
+
+══════════════════════════════════════════════════════════════
+  METHOD 2: Manual Deploy
+══════════════════════════════════════════════════════════════
+
+Step 1: Build
+$ ./build.sh
+
+Step 2: Transfer
+$ scp build/dist/jd2-controller_*.tar.gz user@host:/opt/
+
+Step 3: Install on remote
+$ ssh host
+$ cd /opt && tar -xzf jd2-controller_*.tar.gz
+$ cd jd2-controller_* && ./install.sh
+
+══════════════════════════════════════════════════════════════
+  Configuration (One-Time on Remote)
+══════════════════════════════════════════════════════════════
+
+$ ssh fshare
+$ cd /opt/jd2-controller_*
+$ cp .env.example .env
+$ nano .env
+
+Add your credentials:
+  JDOWNLOADER_EMAIL=your@email.com
+  JDOWNLOADER_PASSWORD=yourpassword
+  JDOWNLOADER_DEVICE_NAME=yourdevice
+
+══════════════════════════════════════════════════════════════
+  Install as System Service
+══════════════════════════════════════════════════════════════
+
+$ sudo cp jd-controller-api.service /etc/systemd/system/
+$ sudo systemctl daemon-reload
+$ sudo systemctl enable --now jd-controller-api
+$ sudo systemctl status jd-controller-api
+
+══════════════════════════════════════════════════════════════
+  📚 Documentation
+══════════════════════════════════════════════════════════════
+
+  DEPLOYMENT_SCRIPTS.md    - Complete overview
+  BUILD_DEPLOY.md          - Quick reference
+  docs/ONECLICK_DEPLOY.md  - Detailed deploy guide
+  docs/BUILD_GUIDE.md      - Build documentation
+
+══════════════════════════════════════════════════════════════
+  🔧 Customization
+══════════════════════════════════════════════════════════════
+
+Change remote host in oneclick_deploy.sh:
+  REMOTE_HOST="your-hostname"
+
+Change install path:
+  REMOTE_PATH="/your/custom/path"
+
+══════════════════════════════════════════════════════════════
+  ✅ Verification
+══════════════════════════════════════════════════════════════
+
+Test SSH: ssh fshare "echo 'Connection OK'"
+Test API: curl http://fshare:8000/health
+Check logs: sudo journalctl -u jd-controller-api -f
+
+══════════════════════════════════════════════════════════════
+
+💡 TIP: For regular updates, just run ./oneclick_deploy.sh
+

@@ -201,7 +201,7 @@ class JDownloaderService:
         """Check if JDownloader is running"""
         try:
             result = subprocess.run(
-                ["pgrep", "-f", "JDownloader.jar"],
+                ["/usr/bin/pgrep", "-f", "JDownloader.jar"],
                 capture_output=True,
                 text=True
             )
@@ -227,7 +227,7 @@ class JDownloaderService:
         try:
             # Start JDownloader in background
             subprocess.Popen(
-                ["java", "-jar", str(self.jar_file), "-norestart"],
+                ["/usr/bin/java", "-Djava.awt.headless=true", "-jar", str(self.jar_file), "-norestart"],
                 cwd=str(self.jd_home),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -254,7 +254,7 @@ class JDownloaderService:
             return True, "JDownloader is not running"
         
         try:
-            subprocess.run(["kill", str(pid)], check=True)
+            subprocess.run(["/usr/bin/kill", str(pid)], check=True)
             time.sleep(1)
             
             # Verify stopped
@@ -263,7 +263,7 @@ class JDownloaderService:
                 return True, f"JDownloader stopped (PID: {pid})"
             else:
                 # Force kill if still running
-                subprocess.run(["kill", "-9", str(pid)], check=True)
+                subprocess.run(["/usr/bin/kill", "-9", str(pid)], check=True)
                 return True, f"JDownloader force stopped (PID: {pid})"
                 
         except Exception as e:

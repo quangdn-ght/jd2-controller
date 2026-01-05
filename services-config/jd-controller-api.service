@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=ght
+Group=ght
 WorkingDirectory=/opt/jd2-controller/current
 Environment="PATH=/opt/jd2-controller/current/venv/bin"
 EnvironmentFile=/opt/jd2-controller/current/.env
