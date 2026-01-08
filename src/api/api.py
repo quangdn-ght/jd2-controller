@@ -3,6 +3,7 @@
 import os
 import time
 import subprocess
+import json
 from typing import Optional
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Depends, Security, status
@@ -16,6 +17,76 @@ import myjdapi
 
 # Load environment variables
 load_dotenv()
+
+
+def sync_env_to_jd_config():
+    """Sync .env credentials to JDownloader config file if they exist"""
+    email = os.getenv("JDOWNLOADER_EMAIL")
+    password = os.getenv("JDOWNLOADER_PASSWORD")
+    device_name = os.getenv("JDOWNLOADER_DEVICE_NAME")
+    jd_home = os.getenv("JDOWNLOADER_HOME", "/opt/jd2")
+    
+    if not email and not password and not device_name:
+        return False
+    
+    config_file = Path(jd_home) / "cfg" / "org.jdownloader.api.myjdownloader.MyJDownloaderSettings.json"
+    
+    if not config_file.exists():
+        return False
+    
+    try:
+        # Read existing config
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        
+        # Update with .env values (priority to .env)
+        updated = False
+        if email and config.get("email") != email:
+            config["email"] = email
+            updated = True
+        if password and config.get("password") != password:
+            config["password"] = password
+            updated = True
+        if device_name and config.get("devicename") != device_name:
+            config["devicename"] = device_name
+            updated = True
+        
+        # Write back if updated
+        if updated:
+            with open(config_file, 'w') as f:
+                json.dump(config, f, indent=2)
+            return True
+        
+        return False
+    except Exception as e:
+        print(f"⚠️  Warning: Could not sync .env to JDownloader config: {str(e)}")
+        return False
+
+
+def get_credentials():
+    """Get credentials with priority: .env > JDownloader config"""
+    # Priority 1: .env file
+    email = os.getenv("JDOWNLOADER_EMAIL")
+    password = os.getenv("JDOWNLOADER_PASSWORD")
+    device_name = os.getenv("JDOWNLOADER_DEVICE_NAME")
+    
+    # Priority 2: JDownloader config (fallback)
+    if not email or not password:
+        try:
+            jd_home = os.getenv("JDOWNLOADER_HOME", "/opt/jd2")
+            jd = JDownloaderConfig(jd_home)
+            config = jd.read_config()
+            
+            if not email:
+                email = config.get("email")
+            if not password:
+                password = config.get("password")
+            if not device_name:
+                device_name = config.get("devicename")
+        except:
+            pass
+    
+    return email, password, device_name
 
 
 class Settings(BaseSettings):
@@ -41,6 +112,82 @@ app = FastAPI(
     description="RESTful API for managing JDownloader MyJDownloader authentication",
     version="1.0.0"
 )
+
+
+# Global connection state
+cloud_connection = {
+    "connected": False,
+    "devices": [],
+    "last_check": None,
+    "email": None
+}
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Auto-connect to MyJDownloader cloud on startup if credentials exist"""
+    print("\n" + "="*70)
+    print("🚀 JDownloader Auth API Starting...".center(70))
+    print("="*70)
+    
+    # Get credentials with priority: .env > JDownloader config
+    email, password, device_name = get_credentials()
+    
+    # Sync .env to JDownloader config if needed
+    if email or password or device_name:
+        synced = sync_env_to_jd_config()
+        if synced:
+            print(f"🔄 Synced .env settings to JDownloader config")
+    
+    if email and password:
+        print(f"📧 Using credentials from .env: {email}")
+        if device_name:
+            print(f"🏷️  Device name: {device_name}")
+        print("🔌 Auto-connecting to MyJDownloader cloud...")
+        
+        try:
+            # Try to connect using the myjdapi library
+            jd_api = myjdapi.Myjdapi()
+            jd_api.set_app_key("jd2controller")
+            jd_api.connect(email, password)
+            jd_api.update_devices()
+            devices = jd_api.list_devices()
+            
+            # Update global connection state
+            cloud_connection["connected"] = True
+            cloud_connection["devices"] = devices
+            cloud_connection["last_check"] = time.time()
+            cloud_connection["email"] = email
+            
+            print(f"✅ Successfully connected to MyJDownloader cloud")
+            print(f"📱 Found {len(devices)} device(s):")
+            for i, device in enumerate(devices, 1):
+                device_name_found = device.get("name", "Unknown")
+                device_id = device.get("id", "")
+                device_type = device.get("type", "")
+                device_status = device.get("status", "UNKNOWN")
+                print(f"   {i}. {device_name_found}")
+                print(f"      ID: {device_id}")
+                print(f"      Type: {device_type}")
+                print(f"      Status: {device_status}")
+            
+            if len(devices) == 0:
+                print(f"   ⚠️  No devices found. This means:")
+                print(f"      • JDownloader is not running, OR")
+                print(f"      • JDownloader is not connected to this MyJDownloader account")
+                if device_name:
+                    print(f"      • Expected device name: {device_name}")
+            
+        except myjdapi.exception.MYJDException as e:
+            print(f"⚠️  Failed to auto-connect: {str(e)}")
+            print(f"   You can still connect manually via /cloud/connect endpoint")
+        except Exception as e:
+            print(f"⚠️  Error during auto-connect: {str(e)}")
+    else:
+        print("ℹ️  No credentials found in .env or JDownloader config")
+        print("   Set JDOWNLOADER_EMAIL and JDOWNLOADER_PASSWORD in .env to enable auto-connect")
+    
+    print("="*70 + "\n")
 
 # API Key security (optional)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -239,16 +386,13 @@ async def get_connection_status(api_key: str = Depends(verify_api_key)):
 async def connect_to_cloud(api_key: str = Depends(verify_api_key)):
     """Connect to MyJDownloader cloud and verify connection"""
     try:
-        jd = JDownloaderConfig(settings.jdownloader_home)
-        config = jd.read_config()
-        
-        email = config.get("email")
-        password = config.get("password")
+        # Get credentials with priority: .env > JDownloader config
+        email, password, device_name = get_credentials()
         
         if not email or not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email and password must be configured first"
+                detail="Email and password must be configured in .env or JDownloader config"
             )
         
         # Connect to MyJDownloader API using official library
@@ -280,16 +424,13 @@ async def connect_to_cloud(api_key: str = Depends(verify_api_key)):
 async def list_cloud_devices(api_key: str = Depends(verify_api_key)):
     """List all devices connected to MyJDownloader cloud"""
     try:
-        jd = JDownloaderConfig(settings.jdownloader_home)
-        config = jd.read_config()
-        
-        email = config.get("email")
-        password = config.get("password")
+        # Get credentials with priority: .env > JDownloader config
+        email, password, device_name = get_credentials()
         
         if not email or not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email and password must be configured first"
+                detail="Email and password must be configured in .env or JDownloader config"
             )
         
         # Connect and list devices using official library
@@ -299,10 +440,17 @@ async def list_cloud_devices(api_key: str = Depends(verify_api_key)):
         jd_api.update_devices()
         devices = jd_api.list_devices()
         
+        # Update global connection state
+        cloud_connection["connected"] = True
+        cloud_connection["devices"] = devices
+        cloud_connection["last_check"] = time.time()
+        cloud_connection["email"] = email
+        
         return {
             "status": "success",
             "message": f"Found {len(devices)} device(s)",
             "device_count": len(devices),
+            "connected": True,
             "devices": [
                 {
                     "name": d.get("name", "Unknown"),
@@ -500,39 +648,32 @@ async def restart_service(api_key: str = Depends(verify_api_key)):
 # CLI Command Endpoints (matching jdctl functionality)
 @app.post("/cli/start", response_model=dict, tags=["CLI Commands"])
 async def cli_start(api_key: str = Depends(verify_api_key)):
-    """Start JDownloader with headless mode and auto-verification (like jdctl start)"""
+    """Start JDownloader (like jdctl start)"""
     try:
-        script_path = Path("/home/ght/project/jd2-controller/start_headless.sh")
+        service = JDownloaderService(settings.jdownloader_home)
+        success, message = service.start()
         
-        if not script_path.exists():
+        if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Headless startup script not found"
+                detail=message
             )
         
-        # Run the headless startup script
-        result = subprocess.run(
-            ["bash", str(script_path)],
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
+        # Wait a bit for JD2 to initialize
+        time.sleep(3)
         
-        success = result.returncode == 0
-        output = result.stdout if result.stdout else result.stderr
+        # Get status
+        status_info = service.status()
         
         return {
-            "status": "success" if success else "failed",
-            "message": "JDownloader started with headless mode" if success else "Failed to start",
-            "output": output,
-            "exit_code": result.returncode
+            "status": "success",
+            "message": message,
+            "running": status_info["running"],
+            "pid": status_info["pid"]
         }
         
-    except subprocess.TimeoutExpired:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Startup script timeout (exceeded 120 seconds)"
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -544,44 +685,19 @@ async def cli_start(api_key: str = Depends(verify_api_key)):
 async def cli_stop(api_key: str = Depends(verify_api_key)):
     """Stop JDownloader (like jdctl stop)"""
     try:
-        # Check if running
-        result = subprocess.run(
-            ["/usr/bin/pgrep", "-f", "JDownloader.jar"],
-            capture_output=True,
-            text=True
-        )
+        service = JDownloaderService(settings.jdownloader_home)
+        success, message = service.stop()
         
-        if result.returncode != 0:
-            return StatusResponse(
-                status="success",
-                message="JDownloader is not running"
-            )
-        
-        # Stop JDownloader
-        subprocess.run(
-            ["/usr/bin/sudo", "/usr/bin/pkill", "-9", "-f", "JDownloader.jar"],
-            capture_output=True
-        )
-        
-        time.sleep(2)
-        
-        # Verify stopped
-        result = subprocess.run(
-            ["/usr/bin/pgrep", "-f", "JDownloader.jar"],
-            capture_output=True
-        )
-        
-        if result.returncode != 0:
-            return StatusResponse(
-                status="success",
-                message="JDownloader stopped successfully"
-            )
-        else:
+        if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to stop JDownloader"
+                detail=message
             )
         
+        return StatusResponse(status="success", message=message)
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -593,20 +709,28 @@ async def cli_stop(api_key: str = Depends(verify_api_key)):
 async def cli_restart(api_key: str = Depends(verify_api_key)):
     """Restart JDownloader (like jdctl restart)"""
     try:
-        # Stop first
-        stop_result = await cli_stop(api_key)
-        time.sleep(2)
+        service = JDownloaderService(settings.jdownloader_home)
+        success, message = service.restart()
         
-        # Start
-        start_result = await cli_start(api_key)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=message
+            )
+        
+        # Get status after restart
+        time.sleep(2)
+        status_info = service.status()
         
         return {
-            "status": start_result["status"],
-            "message": f"Restart completed: {stop_result.message} -> {start_result['message']}",
-            "stop_result": stop_result.message,
-            "start_result": start_result["message"]
+            "status": "success",
+            "message": message,
+            "running": status_info["running"],
+            "pid": status_info["pid"]
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -773,7 +897,7 @@ async def cli_logs(
         
         # Read last N lines
         result = subprocess.run(
-            ["tail", f"-{lines}", str(log_file)],
+            ["/usr/bin/tail", f"-{lines}", str(log_file)],
             capture_output=True,
             text=True
         )

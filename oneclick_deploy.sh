@@ -179,6 +179,49 @@ else
     echo -e "${YELLOW}⚠${NC}  No .env file found locally, skipping..."
 fi
 
+# Check if JDownloader2 is installed and install if needed
+echo ""
+echo "🔍 Checking JDownloader2 installation..."
+JD2_CHECK=$(ssh "$REMOTE_HOST" "[ -d /opt/jdownloader ] && echo 'exists' || echo 'missing'")
+
+if [ "$JD2_CHECK" = "missing" ]; then
+    echo -e "${YELLOW}⚠${NC}  JDownloader2 not found, installing..."
+    
+    # Transfer JD2 installer and service file
+    echo "📦 Transferring JDownloader2 installer..."
+    scp "$SCRIPT_DIR/scripts/JDownloader2Setup_unix_nojre.sh" "${REMOTE_HOST}:~/"
+    scp "$SCRIPT_DIR/services-config/jdownloader.service" "${REMOTE_HOST}:~/"
+    
+    # Install JDownloader2
+    ssh "$REMOTE_HOST" bash << 'EOFJD2'
+        set -e
+        echo "🔧 Installing JDownloader2..."
+        
+        # Create JD2 directory parent
+        sudo mkdir -p /opt
+        
+        # Make installer executable and run it
+        chmod +x ~/JDownloader2Setup_unix_nojre.sh
+        
+        # Run installer in unattended mode to /opt/j downloader
+        sudo bash ~/JDownloader2Setup_unix_nojre.sh -q -dir /opt/jdownloader -overwrite
+        
+        # Clean up
+        rm -f ~/JDownloader2Setup_unix_nojre.sh
+        
+        echo -e "\033[0;32m✓\033[0m JDownloader2 installed to /opt/jdownloader"
+EOFJD2
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓${NC} JDownloader2 installation complete"
+    else
+        echo -e "${RED}✗${NC} JDownloader2 installation failed"
+        exit 1
+    fi
+else
+    echo -e "${GREEN}✓${NC} JDownloader2 already installed"
+fi
+
 # Install and start services
 echo ""
 echo "🔧 Installing systemd services..."
@@ -192,7 +235,12 @@ ssh "$REMOTE_HOST" bash << 'EOF'
         echo "✓ Installed jd-controller-api.service"
     fi
     
-    if [ -f "jdownloader.service" ]; then
+    # Install jdownloader.service from home directory if it was transferred
+    if [ -f "$HOME/jdownloader.service" ]; then
+        sudo cp $HOME/jdownloader.service /etc/systemd/system/
+        rm -f $HOME/jdownloader.service
+        echo "✓ Installed jdownloader.service"
+    elif [ -f "jdownloader.service" ]; then
         sudo cp jdownloader.service /etc/systemd/system/
         echo "✓ Installed jdownloader.service"
     fi

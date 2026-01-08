@@ -6,11 +6,11 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/jd2
+WorkingDirectory=/opt/jdownloader
 Environment="JAVA_OPTS=-Djava.awt.headless=true"
 
 # Start JDownloader
-ExecStart=/usr/bin/java -Djava.awt.headless=true -jar /opt/jd2/JDownloader.jar -norestart -noerr
+ExecStart=/usr/bin/java -Djava.awt.headless=true -jar /opt/jdownloader/JDownloader.jar -norestart -noerr
 
 # Restart policy
 Restart=on-failure
